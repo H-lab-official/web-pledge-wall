@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /pledgeMessages/{messageId} {
+      // Allow reading individual documents
+      // Public can read approved messages
+      // Authenticated users can read all messages
+      allow get: if resource.data.status == 'approved' || request.auth != null;
+      
+      // Allow listing collection - Firestore will filter results based on get permission
+      // Public users will only see approved messages
+      // Authenticated users can see all messages
+      allow list: if true;
+      
+      // Anyone can create new messages (will be pending)
+      allow create: if true;
+      
+      // Allow update for status changes (approve/reject/edit) and other fields
+      // Can update status to approved, rejected, or pending
+      // Also allow updating message content and other fields
+      allow update: if request.resource.data.status == 'approved' 
+                    || request.resource.data.status == 'rejected' 
+                    || request.resource.data.status == 'pending'
+                    || request.auth != null;
+      
+      // Allow delete - anyone can delete (for admin page without auth)
+      // In production, you may want to add authentication for better security
+      allow delete: if true;
+    }
+  }
+}

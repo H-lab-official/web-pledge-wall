@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --font-anuphan: 'Anuphan', 'Inter', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans',
+    'Droid Sans', 'Helvetica Neue', sans-serif;
+  --font-inter: 'Inter', 'Anuphan', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans',
+    'Droid Sans', 'Helvetica Neue', sans-serif;
+  --font-sans: 'Anuphan', 'Inter', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans',
+    'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+}
+
+:root {
+  --font-base: var(--font-anuphan);
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  overscroll-behavior: none;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  overflow: hidden;
+  @apply font-sans;
+}
+
+/* Allow scrolling only on admin page */
+body.admin-page {
+  overflow: auto !important;
+  touch-action: auto !important;
+  overscroll-behavior: auto !important;
+}
+
+body.admin-page html,
+body.admin-page #root {
+  overflow: visible;
+  height: auto;
+}
+
+input,
+textarea,
+select,
+button {
+  -webkit-user-select: auto;
+  user-select: auto;
+  -webkit-user-drag: auto;
+  user-drag: auto;
+  font-family: var(--font-base);
+  @apply font-sans;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
