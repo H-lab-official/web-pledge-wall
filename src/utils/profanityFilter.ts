@@ -24,7 +24,11 @@ thaiBadWords.forEach(word => {
 // Custom Thai profanity check (more comprehensive)
 // Check for whole words only, not substrings
 const checkThaiProfanity = (text: string): boolean => {
-  const lowerText = text.toLowerCase()
+  if (!text || text.trim().length === 0) {
+    return false
+  }
+  
+  const lowerText = text.toLowerCase().trim()
   
   // Check each bad word (sort by length descending to check longer phrases first)
   const sortedBadWords = [...thaiBadWords].sort((a, b) => b.length - a.length)
@@ -32,35 +36,37 @@ const checkThaiProfanity = (text: string): boolean => {
   for (const badWord of sortedBadWords) {
     const lowerBadWord = badWord.toLowerCase()
     
-    // Simple check: if the bad word exists in the text
-    if (lowerText.includes(lowerBadWord)) {
-      const index = lowerText.indexOf(lowerBadWord)
+    // Find all occurrences of the bad word in the text
+    let searchIndex = 0
+    while (true) {
+      const index = lowerText.indexOf(lowerBadWord, searchIndex)
+      if (index === -1) break
       
-      // Get characters before and after
-      const before = index > 0 ? lowerText[index - 1] : ''
-      const after = index + lowerBadWord.length < lowerText.length 
+      // Check character before the bad word
+      const beforeChar = index > 0 ? lowerText[index - 1] : ''
+      // Check character after the bad word
+      const afterChar = index + lowerBadWord.length < lowerText.length 
         ? lowerText[index + lowerBadWord.length] 
         : ''
       
-      // Check if it's at word boundaries (Thai doesn't use spaces, so we check for Thai chars)
-      const beforeIsBoundary = !before || /[\s,.!?;:()[\]{}'"/\\]/.test(before)
-      const afterIsBoundary = !after || /[\s,.!?;:()[\]{}'"/\\]/.test(after)
+      // Check if it's a word boundary
+      // For Thai text without spaces, we need to be more careful
+      // Only consider it a match if:
+      // 1. It's at the start/end of the text, OR
+      // 2. It's surrounded by spaces/punctuation, OR
+      // 3. It's a standalone word (not part of another word)
+      const isStartBoundary = index === 0
+      const isEndBoundary = index + lowerBadWord.length === lowerText.length
+      const isBeforeBoundary = isStartBoundary || /[\s,.!?;:()[\]{}'"/\\]/.test(beforeChar)
+      const isAfterBoundary = isEndBoundary || /[\s,.!?;:()[\]{}'"/\\]/.test(afterChar)
       
-      // If both before and after are boundaries, it's a match
-      if (beforeIsBoundary && afterIsBoundary) {
+      // Only match if both sides are boundaries (it's a complete word)
+      if (isBeforeBoundary && isAfterBoundary) {
         return true
       }
       
-      // For Thai text without spaces, if the bad word is at start or end
-      if (index === 0 || index + lowerBadWord.length === lowerText.length) {
-        return true
-      }
-      
-      // For Thai, also check if it's surrounded by Thai characters (not in middle of another word)
-      // If before or after is punctuation/space, it's likely a separate word
-      if (beforeIsBoundary || afterIsBoundary) {
-        return true
-      }
+      // Move search index forward
+      searchIndex = index + 1
     }
   }
   

@@ -27,7 +27,7 @@ const FormTextarea: React.FC<FormTextareaProps> = ({
 
   return (
     <label className={`flex w-full flex-col gap-2 ${containerClassName}`}>
-      <span className="text-sm font-medium text-[#4a375f]">{label}</span>
+      <span className="text-sm font-medium text-[#4a375f] text-center">{label}</span>
       <motion.textarea
         animate={shakeAnimation}
         className={`${baseTextareaClass} ${className}`}

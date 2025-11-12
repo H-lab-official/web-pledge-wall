@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Fetcher - ดึงข้อมูลจาก API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Noto Sans Thai', sans-serif;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .log-entry {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 to-pink-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-purple-800 mb-2">🚀 Data Fetcher</h1>
+            <p class="text-gray-600">ดึงข้อมูลจาก API อัตโนมัติและเก็บลงไฟล์</p>
+        </div>
+
+        <!-- Main Card -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Step Indicator -->
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4">
+                <div class="flex justify-between items-center max-w-4xl mx-auto">
+                    <div id="step1" class="flex items-center space-x-2 step-indicator active">
+                        <div class="w-8 h-8 rounded-full bg-white text-purple-600 flex items-center justify-center font-bold">1</div>
+                        <span class="hidden sm:inline">API URL</span>
+                    </div>
+                    <div class="flex-1 h-1 bg-white/30 mx-2"></div>
+                    <div id="step2" class="flex items-center space-x-2 step-indicator">
+                        <div class="w-8 h-8 rounded-full bg-white/30 text-white flex items-center justify-center font-bold">2</div>
+                        <span class="hidden sm:inline">Preview</span>
+                    </div>
+                    <div class="flex-1 h-1 bg-white/30 mx-2"></div>
+                    <div id="step3" class="flex items-center space-x-2 step-indicator">
+                        <div class="w-8 h-8 rounded-full bg-white/30 text-white flex items-center justify-center font-bold">3</div>
+                        <span class="hidden sm:inline">ตั้งค่า</span>
+                    </div>
+                    <div class="flex-1 h-1 bg-white/30 mx-2"></div>
+                    <div id="step4" class="flex items-center space-x-2 step-indicator">
+                        <div class="w-8 h-8 rounded-full bg-white/30 text-white flex items-center justify-center font-bold">4</div>
+                        <span class="hidden sm:inline">เริ่มดึงข้อมูล</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-8">
+                <!-- Step 1: API URL -->
+                <div id="content-step1" class="step-content">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">📍 ใส่ API URL</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">API URL</label>
+                            <input 
+                                type="text" 
+                                id="apiUrl" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                placeholder="https://api.example.com/data"
+                            />
+                        </div>
+                        <button 
+                            onclick="fetchPreview()"
+                            class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                        >
+                            ต่อไป →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Preview & Select Data Path -->
+                <div id="content-step2" class="step-content hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">📋 Preview ข้อมูล</h2>
+                    
+                    <!-- Structure Display -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-2">Structure ของ API Response:</h3>
+                        <div id="structureDisplay" class="bg-gray-50 p-4 rounded-lg border-2 border-gray-200 max-h-64 overflow-auto font-mono text-sm"></div>
+                    </div>
+
+                    <!-- Data Path Selection -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ข้อมูลอยู่ที่ไหน?
+                            </label>
+                            <select 
+                                id="isNested" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                onchange="toggleDataPath()"
+                            >
+                                <option value="false">Root level (response เป็น array โดยตรง)</option>
+                                <option value="true">Nested (อยู่ภายใน object เช่น response.data)</option>
+                            </select>
+                        </div>
+
+                        <div id="dataPathContainer" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Path ไปยังข้อมูล (เช่น: data)
+                            </label>
+                            <input 
+                                type="text" 
+                                id="dataPath" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                placeholder="data"
+                            />
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button 
+                                onclick="goToStep(1)"
+                                class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-all"
+                            >
+                                ← ย้อนกลับ
+                            </button>
+                            <button 
+                                onclick="extractData()"
+                                class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                            >
+                                ต่อไป →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Field Selection -->
+                <div id="content-step3" class="step-content hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">📝 เลือกฟิลด์</h2>
+                    
+                    <!-- Sample Data Preview -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-2">ตัวอย่างข้อมูล:</h3>
+                        <div id="sampleDataDisplay" class="bg-gray-50 p-4 rounded-lg border-2 border-gray-200 max-h-48 overflow-auto font-mono text-sm"></div>
+                    </div>
+
+                    <!-- Unique Key Selection -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            🔑 Unique Key (ป้องกันข้อมูลซ้ำ)
+                        </label>
+                        <select 
+                            id="uniqueKey" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                        ></select>
+                    </div>
+
+                    <!-- Field Selection -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            เลือกฟิลด์ที่ต้องการเก็บ
+                        </label>
+                        <div class="flex gap-2 mb-3">
+                            <button onclick="selectAllFields()" class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600">
+                                ✓ เลือกทั้งหมด
+                            </button>
+                            <button onclick="deselectAllFields()" class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">
+                                ✗ ยกเลิกทั้งหมด
+                            </button>
+                        </div>
+                        <div id="fieldCheckboxes" class="space-y-2 max-h-64 overflow-auto bg-gray-50 p-4 rounded-lg border-2 border-gray-200"></div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button 
+                            onclick="goToStep(2)"
+                            class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-all"
+                        >
+                            ← ย้อนกลับ
+                        </button>
+                        <button 
+                            onclick="goToSettings()"
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                        >
+                            ต่อไป →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Settings & Start -->
+                <div id="content-step4" class="step-content hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">⚙️ ตั้งค่าและเริ่มดึงข้อมูล</h2>
+                    
+                    <div class="space-y-6">
+                        <!-- Output File -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                💾 ชื่อไฟล์ที่จะเก็บข้อมูล
+                            </label>
+                            <input 
+                                type="text" 
+                                id="outputFile" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                value="data.txt"
+                            />
+                        </div>
+
+                        <!-- Fetch Interval -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ⏱️ ดึงข้อมูลทุกกี่วินาที
+                            </label>
+                            <input 
+                                type="number" 
+                                id="fetchInterval" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                value="60"
+                                min="1"
+                            />
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-lg border-2 border-purple-200">
+                            <h3 class="font-bold text-lg mb-3">📊 สรุป</h3>
+                            <div class="space-y-2 text-sm">
+                                <div><span class="font-semibold">API:</span> <span id="summaryApi"></span></div>
+                                <div><span class="font-semibold">Unique Key:</span> <span id="summaryKey"></span></div>
+                                <div><span class="font-semibold">ฟิลด์ที่เลือก:</span> <span id="summaryFields"></span></div>
+                                <div><span class="font-semibold">ไฟล์:</span> <span id="summaryFile"></span></div>
+                                <div><span class="font-semibold">ระยะเวลา:</span> <span id="summaryInterval"></span> วินาที</div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button 
+                                onclick="goToStep(3)"
+                                class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-all"
+                            >
+                                ← ย้อนกลับ
+                            </button>
+                            <button 
+                                id="startButton"
+                                onclick="startFetching()"
+                                class="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                            >
+                                🚀 เริ่มดึงข้อมูล
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Log Display -->
+                    <div id="logContainer" class="mt-8 hidden">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-lg">📋 Log</h3>
+                            <button 
+                                id="stopButton"
+                                onclick="stopFetching()"
+                                class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
+                            >
+                                ⏹ หยุด
+                            </button>
+                        </div>
+                        <div id="logDisplay" class="bg-gray-900 text-green-400 p-4 rounded-lg h-96 overflow-auto font-mono text-sm space-y-1"></div>
+                        
+                        <!-- Stats -->
+                        <div class="grid grid-cols-3 gap-4 mt-4">
+                            <div class="bg-blue-50 p-4 rounded-lg text-center">
+                                <div class="text-2xl font-bold text-blue-600" id="statTotal">0</div>
+                                <div class="text-sm text-gray-600">รายการทั้งหมด</div>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-lg text-center">
+                                <div class="text-2xl font-bold text-green-600" id="statNew">0</div>
+                                <div class="text-sm text-gray-600">ข้อมูลใหม่รอบนี้</div>
+                            </div>
+                            <div class="bg-purple-50 p-4 rounded-lg text-center">
+                                <div class="text-2xl font-bold text-purple-600" id="statRound">0</div>
+                                <div class="text-sm text-gray-600">รอบที่</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

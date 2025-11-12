@@ -8,7 +8,7 @@ interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 const baseInputClass =
-  'h-12 rounded-full border-2 border-gray-300 bg-black/20 px-8 py-3 text-base text-[#2f1b41] leading-relaxed text-center'
+  'h-12 rounded-full border-2 border-gray-300 bg-black/20 px-8 py-3 text-[#2f1b41] leading-relaxed text-center'
 
 const FormInput: React.FC<FormInputProps> = ({
   label,
@@ -26,14 +26,16 @@ const FormInput: React.FC<FormInputProps> = ({
   const { onAnimationStart, onDrag, onDragStart, onDragEnd, ...inputProps } = rest
 
   return (
-    <label className={`flex w-full flex-col gap-2 ${containerClassName}`}>
-      <span className="text-sm font-medium text-[#4a375f]">{label}</span>
+    <div className={`flex w-full flex-col gap-2 items-center ${containerClassName}`}>
+      <label className="text-lg font-medium text-[#4a375f] text-center w-full">
+        {label}
+      </label>
       <motion.input
         animate={shakeAnimation}
         className={`${baseInputClass} ${className}`}
         {...inputProps}
       />
-    </label>
+    </div>
   )
 }
 
