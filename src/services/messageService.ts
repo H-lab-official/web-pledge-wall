@@ -1,126 +1,81 @@
-import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  Timestamp,
-  getDoc,
-  type QueryDocumentSnapshot
-} from 'firebase/firestore'
-import { db } from '../firebase/config'
-import { PledgeMessage } from '../types'
+/**
+ * Message Service
+ * สลับระหว่าง Firebase และ Express API ตามการตั้งค่าใน appConfig
+ */
 
-const MESSAGES_COLLECTION = 'pledgeMessages'
+import { PledgeMessage } from '../types'
+import { APP_MODE } from '../config/appConfig'
+import { FirebaseAdapter, ExpressApiAdapter, type IMessageAdapter } from './apiAdapter'
+
+// สร้าง adapter instance ตาม mode
+const getAdapter = (): IMessageAdapter => {
+  if (APP_MODE === 'offline') {
+    console.log('🔌 Using Express API (Offline Mode)')
+    return new ExpressApiAdapter()
+  } else {
+    console.log('☁️ Using Firebase (Online Mode)')
+    return new FirebaseAdapter()
+  }
+}
+
+// Singleton adapter instance
+const adapter = getAdapter()
+
+// ==================== Public API ====================
 
 export const submitMessage = async (message: string, author?: string): Promise<string> => {
-  const messageData = {
-    message,
-    author: author || 'Anonymous',
-    status: 'approved', // อนุมัติอัตโนมัติ (เปลี่ยนจาก 'pending')
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-    reportedCount: 0
-  }
-
-  const docRef = await addDoc(collection(db, MESSAGES_COLLECTION), messageData)
-  return docRef.id
+  return adapter.submitMessage(message, author)
 }
 
 export const getApprovedMessages = async (): Promise<PledgeMessage[]> => {
-  const q = query(
-    collection(db, MESSAGES_COLLECTION),
-    where('status', '==', 'approved'),
-    orderBy('createdAt', 'desc')
-  )
-
-  const querySnapshot = await getDocs(q)
-  return querySnapshot.docs.map((doc: QueryDocumentSnapshot) => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt.toDate(),
-    updatedAt: doc.data().updatedAt.toDate()
-  } as PledgeMessage))
+  return adapter.getApprovedMessages()
 }
 
 export const getAllMessages = async (): Promise<PledgeMessage[]> => {
-  const q = query(
-    collection(db, MESSAGES_COLLECTION),
-    orderBy('createdAt', 'desc')
-  )
-
-  const querySnapshot = await getDocs(q)
-  return querySnapshot.docs.map((doc: QueryDocumentSnapshot) => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt.toDate(),
-    updatedAt: doc.data().updatedAt.toDate()
-  } as PledgeMessage))
+  return adapter.getAllMessages()
 }
 
 export const approveMessage = async (messageId: string): Promise<void> => {
-  const messageRef = doc(db, MESSAGES_COLLECTION, messageId)
-  await updateDoc(messageRef, {
-    status: 'approved',
-    updatedAt: Timestamp.now()
-  })
+  return adapter.approveMessage(messageId)
 }
 
 export const rejectMessage = async (messageId: string): Promise<void> => {
-  const messageRef = doc(db, MESSAGES_COLLECTION, messageId)
-  await updateDoc(messageRef, {
-    status: 'rejected',
-    updatedAt: Timestamp.now()
-  })
+  return adapter.rejectMessage(messageId)
 }
 
 export const updateMessage = async (messageId: string, newMessage: string): Promise<void> => {
-  const messageRef = doc(db, MESSAGES_COLLECTION, messageId)
-  await updateDoc(messageRef, {
-    message: newMessage,
-    status: 'pending',
-    updatedAt: Timestamp.now()
-  })
+  return adapter.updateMessage(messageId, newMessage)
 }
 
 export const deleteMessage = async (messageId: string): Promise<void> => {
-  const messageRef = doc(db, MESSAGES_COLLECTION, messageId)
-  await deleteDoc(messageRef)
+  return adapter.deleteMessage(messageId)
 }
 
 export const reportMessage = async (messageId: string, reason: string): Promise<void> => {
-  const messageRef = doc(db, MESSAGES_COLLECTION, messageId)
-  const messageSnap = await getDoc(messageRef)
-  
-  if (messageSnap.exists()) {
-    const currentData = messageSnap.data()
-    await updateDoc(messageRef, {
-      reportedCount: (currentData.reportedCount || 0) + 1,
-      reportedReason: reason,
-      status: 'pending',
-      updatedAt: Timestamp.now()
-    })
-  }
+  return adapter.reportMessage(messageId, reason)
 }
 
 export const getMessageById = async (messageId: string): Promise<PledgeMessage | null> => {
-  const messageRef = doc(db, MESSAGES_COLLECTION, messageId)
-  const messageSnap = await getDoc(messageRef)
-  
-  if (messageSnap.exists()) {
-    const data = messageSnap.data()
-    return {
-      id: messageSnap.id,
-      ...data,
-      createdAt: data.createdAt.toDate(),
-      updatedAt: data.updatedAt.toDate()
-    } as PledgeMessage
-  }
-  
-  return null
+  return adapter.getMessageById(messageId)
 }
+
+// ==================== Helper Functions ====================
+
+// ตรวจสอบสถานะการเชื่อมต่อ (สำหรับ offline mode)
+export const checkConnection = async (): Promise<boolean> => {
+  if (APP_MODE === 'offline') {
+    const expressAdapter = adapter as ExpressApiAdapter
+    if ('checkHealth' in expressAdapter) {
+      return await expressAdapter.checkHealth()
+    }
+  }
+  // Online mode always return true (assume Firebase is available)
+  return true
+}
+
+// ดึงข้อมูล mode ปัจจุบัน
+export const getCurrentMode = () => APP_MODE
+
+// Export adapter สำหรับการใช้งานขั้นสูง (ถ้าจำเป็น)
+export { adapter }
 
