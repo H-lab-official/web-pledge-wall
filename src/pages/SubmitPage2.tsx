@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 
 import { checkProfanity } from '../utils/profanityFilter'
 import { submitMessage } from '../services/messageService'
@@ -8,6 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import FormInput from '../components/FormInput'
 // import FormTextarea from '../components/FormTextarea'
 import ErrorModal from '../components/ErrorModal'
+
+// Import keyboard sound
+import keyboardSound from '../assets/sounds/keyboard-click.mp3'
 
 const SubmitPage = () => {
   const [flowState, setFlowState] = useState<'start' | 'form' | 'success'>('start')
@@ -22,12 +25,155 @@ const SubmitPage = () => {
   const [isTransitioningToSuccess, setIsTransitioningToSuccess] = useState(false)
   const [showBackgroundSVG, setShowBackgroundSVG] = useState(true)
 
+  // Audio for keyboard clicks
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const audioBufferRef = useRef<AudioBuffer | null>(null)
+  const isAudioInitialized = useRef(false)
+
   const logoVariants = {
     start: { y: 200, scale: 1 },
     form: { y: 150, scale: 1 },
     success: { y: 250, scale: 1 }
   }
 
+  // Resume audio เมื่อเข้าหน้า form (สำคัญสำหรับ iOS!)
+  useEffect(() => {
+    if (flowState === 'form' && audioContextRef.current) {
+      const resumeAudio = async () => {
+        try {
+          if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            console.log('🔊 Resuming audio for form state...')
+            await audioContextRef.current.resume()
+            console.log('✅ Audio resumed, state:', audioContextRef.current.state)
+          }
+        } catch (error) {
+          console.error('Failed to resume audio:', error)
+        }
+      }
+      resumeAudio()
+    }
+  }, [flowState])
+
+  // Initialize Audio Context
+  useEffect(() => {
+    const initAudio = async () => {
+      if (isAudioInitialized.current) return
+
+      try {
+        // สร้าง AudioContext
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+        audioContextRef.current = new AudioContextClass()
+
+        // Load ไฟล์เสียง
+        const response = await fetch(keyboardSound)
+        const arrayBuffer = await response.arrayBuffer()
+        audioBufferRef.current = await audioContextRef.current.decodeAudioData(arrayBuffer)
+
+        isAudioInitialized.current = true
+        console.log('🔊 Audio initialized with custom sound')
+      } catch (error) {
+        console.error('Failed to initialize audio:', error)
+      }
+    }
+
+    // Initialize หลังจาก user interaction
+    const handleFirstInteraction = () => {
+      initAudio()
+      document.removeEventListener('click', handleFirstInteraction)
+      document.removeEventListener('touchstart', handleFirstInteraction)
+    }
+
+    document.addEventListener('click', handleFirstInteraction)
+    document.addEventListener('touchstart', handleFirstInteraction)
+
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction)
+      document.removeEventListener('touchstart', handleFirstInteraction)
+      if (audioContextRef.current?.state === 'running') {
+        audioContextRef.current.close()
+      }
+    }
+  }, [])
+
+  // เก็บค่าก่อนหน้าเพื่อเช็คว่ามีการเปลี่ยนแปลง
+  const prevAuthorRef = useRef('')
+  const prevMessageRef = useRef('')
+
+  // ฟังก์ชันเล่นเสียงแป้นพิมพ์ (iOS-friendly)
+  const playKeySound = async () => {
+    if (!audioContextRef.current) {
+      console.warn('AudioContext not initialized')
+      return
+    }
+
+    try {
+      // Resume AudioContext ถ้า suspended (สำคัญสำหรับ iOS!)
+      if (audioContextRef.current.state === 'suspended') {
+        console.log('Resuming AudioContext...')
+        await audioContextRef.current.resume()
+      }
+
+      // เช็คอีกครั้งหลัง resume
+      if (audioContextRef.current.state !== 'running') {
+        console.warn('AudioContext state:', audioContextRef.current.state)
+        return
+      }
+
+      // ถ้ามีไฟล์เสียง - ใช้ buffer
+      if (audioBufferRef.current) {
+        const source = audioContextRef.current.createBufferSource()
+        const gainNode = audioContextRef.current.createGain()
+        
+        source.buffer = audioBufferRef.current
+        source.connect(gainNode)
+        gainNode.connect(audioContextRef.current.destination)
+        
+        gainNode.gain.value = 0.5 // เพิ่มความดังสำหรับ iOS
+        source.start(0)
+      } else {
+        // ถ้าไม่มีไฟล์ - สร้างเสียงสั้นๆ (fallback)
+        console.log('Using generated sound (fallback)')
+        const oscillator = audioContextRef.current.createOscillator()
+        const gainNode = audioContextRef.current.createGain()
+        
+        oscillator.connect(gainNode)
+        gainNode.connect(audioContextRef.current.destination)
+        
+        oscillator.frequency.value = 800 // เสียงสูง (Hz)
+        oscillator.type = 'sine'
+        
+        gainNode.gain.setValueAtTime(0.3, audioContextRef.current.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.04)
+        
+        oscillator.start(audioContextRef.current.currentTime)
+        oscillator.stop(audioContextRef.current.currentTime + 0.04) // เล่น 40ms
+      }
+    } catch (error) {
+      console.error('Error playing key sound:', error)
+    }
+  }
+
+  // Handle input change with sound for Author
+  const handleAuthorChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    // เล่นเสียงเฉพาะเมื่อมีการพิมพ์เพิ่ม (ไม่ใช่การลบ)
+    if (newValue.length > prevAuthorRef.current.length) {
+      await playKeySound()
+    }
+    prevAuthorRef.current = newValue
+    setAuthor(newValue)
+  }
+
+  // Handle input change with sound for Message
+  const handleMessageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    // เล่นเสียงเฉพาะเมื่อมีการพิมพ์เพิ่ม (ไม่ใช่การลบ)
+    if (newValue.length > prevMessageRef.current.length) {
+      await playKeySound()
+    }
+    prevMessageRef.current = newValue
+    setMessage(newValue)
+  }
 
   // Countdown timer for success state
   useEffect(() => {
@@ -37,8 +183,16 @@ const SubmitPage = () => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer)
-          setFlowState('start')
-          setShowBackgroundSVG(true) // Reset background SVG
+          // Fade out background ก่อน
+          setShowBackgroundSVG(false)
+          // เปลี่ยน state หลัง 400ms
+          setTimeout(() => {
+            setFlowState('start')
+          }, 400)
+          // Fade in background หลัง 600ms
+          setTimeout(() => {
+            setShowBackgroundSVG(true)
+          }, 600)
           return 15
         }
         return prev - 1
@@ -594,14 +748,14 @@ const SubmitPage = () => {
           />
         </div>
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {flowState === 'start' && (
             <motion.div
               key="start"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.5 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.8, ease: 'easeInOut' }}
               className='w-full flex flex-col justify-center items-center h-screen py-20 gap-30'
             >
               <div className='flex flex-col items-center justify-center'>
@@ -621,17 +775,17 @@ const SubmitPage = () => {
           {flowState === 'form' && !isTransitioningToSuccess && (
             <motion.div
               key="form"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.5, ease: 'easeInOut' }}
               className='w-full flex flex-col justify-center items-center h-screen py-20 gap-8'
             >
               <form onSubmit={handleSubmit} className='flex w-full max-w-4xl flex-col gap-8 relative'>
                 <FormInput
                   label="Your Name"
                   value={author}
-                  onChange={(e) => setAuthor(e.target.value)}
+                  onChange={handleAuthorChange}
                   containerClassName="flex w-full flex-col items-center gap-4 h-30 w-full"
                   className="flex-1 min-w-0 bg-black/10 text-center text-3xl font-anuphan w-[90%] "
                   shake={shakeAuthor && !author.trim()}
@@ -639,7 +793,7 @@ const SubmitPage = () => {
                 <FormInput
                   label="Your Wish"
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={handleMessageChange}
                   containerClassName="flex w-full flex-col items-center gap-4 h-30 w-full"
                   className="flex-1 min-w-0 bg-black/10 text-center text-3xl font-anuphan w-[90%] "
                   shake={shakeMessage && !message.trim()}
@@ -667,10 +821,10 @@ const SubmitPage = () => {
           {flowState === 'success' && (
             <motion.div
               key="success"
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -50 }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              transition={{ duration: 0.8, ease: 'easeInOut' }}
               className='w-full flex flex-col justify-center items-center h-screen py-20 gap-30 relative z-60'
             >
               <div className='flex flex-col items-center justify-center gap-4'>

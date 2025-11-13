@@ -23,6 +23,7 @@ const AdminPage = () => {
   const [reportReason, setReportReason] = useState('')
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [showApproveAllConfirm, setShowApproveAllConfirm] = useState(false)
 
   useEffect(() => {
     // Add admin-page class to body
@@ -59,6 +60,31 @@ const AdminPage = () => {
     } catch (err) {
       setError('เกิดข้อผิดพลาดในการอนุมัติ')
       console.error(err)
+    }
+  }
+
+  const handleApproveAll = async () => {
+    const pendingMessages = messages.filter(m => m.status === 'pending')
+    
+    if (pendingMessages.length === 0) {
+      setError('ไม่มีข้อความที่รอตรวจสอบ')
+      setTimeout(() => setError(''), 3000)
+      return
+    }
+
+    try {
+      setLoading(true)
+      // อนุมัติทีละข้อความ
+      for (const message of pendingMessages) {
+        await approveMessage(message.id)
+      }
+      setSuccess(`อนุมัติข้อความทั้งหมดสำเร็จ (${pendingMessages.length} ข้อความ)`)
+      loadMessages()
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      setError('เกิดข้อผิดพลาดในการอนุมัติทั้งหมด')
+      console.error(err)
+      setLoading(false)
     }
   }
 
@@ -191,9 +217,18 @@ const AdminPage = () => {
     <div className="admin-page">
       <div className="admin-header">
         <h2>⚙️ จัดการข้อความ</h2>
-        <button onClick={loadMessages} className="refresh-btn">
-          🔄 รีเฟรช
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={() => setShowApproveAllConfirm(true)} 
+            className="approve-all-btn"
+            disabled={messages.filter(m => m.status === 'pending').length === 0}
+          >
+            ✅ อนุมัติทั้งหมด ({messages.filter(m => m.status === 'pending').length})
+          </button>
+          <button onClick={loadMessages} className="refresh-btn">
+            🔄 รีเฟรช
+          </button>
+        </div>
       </div>
 
       <div className="filter-tabs">
@@ -249,6 +284,20 @@ const AdminPage = () => {
         confirmText="ลบ"
         cancelText="ยกเลิก"
         confirmButtonStyle="danger"
+      />
+
+      <Modal
+        isOpen={showApproveAllConfirm}
+        onClose={() => setShowApproveAllConfirm(false)}
+        onConfirm={() => {
+          handleApproveAll()
+          setShowApproveAllConfirm(false)
+        }}
+        title="ยืนยันการอนุมัติทั้งหมด"
+        message={`คุณแน่ใจหรือไม่ว่าต้องการอนุมัติข้อความที่รอตรวจสอบทั้งหมด? (${messages.filter(m => m.status === 'pending').length} ข้อความ)`}
+        confirmText="อนุมัติทั้งหมด"
+        cancelText="ยกเลิก"
+        confirmButtonStyle="primary"
       />
 
       {filteredMessages.length === 0 ? (

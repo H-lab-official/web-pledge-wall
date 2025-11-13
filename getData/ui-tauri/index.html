@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📡 API Data Fetcher v1.2</title>
+    <!-- Cache Buster: 2025-11-13-v2 -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .step {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+        
+        .step.hidden {
+            display: none;
+        }
+
+        .step h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border 0.3s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+        }
+
+        .loading-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            min-width: 300px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #333;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .loading-subtext {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .field-list {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .field-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .field-item:hover {
+            background: #f0f0f0;
+        }
+
+        .field-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            opacity: 0.9;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loadingText">กำลังโหลด...</div>
+            <div class="loading-subtext" id="loadingSubtext">กรุณารอสักครู่</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>📡 API Data Fetcher <small style="font-size: 0.5em; color: #999;">v1.2.3</small></h1>
+            <p>ดึงข้อมูลจาก API และเก็บไว้ในไฟล์อย่างอัตโนมัติ</p>
+        </div>
+
+        <div class="content">
+            <!-- Step 1: API URL -->
+            <div class="step" id="step1">
+                <h2>🔗 ขั้นตอนที่ 1: ใส่ API URL</h2>
+                <div class="input-group">
+                    <label for="apiUrl">API URL:</label>
+                    <input type="text" id="apiUrl" placeholder="https://api.example.com/data">
+                </div>
+                <button onclick="fetchPreview()">ดึงข้อมูลตัวอย่าง</button>
+                <div id="previewResult"></div>
+            </div>
+
+            <!-- Step 2: Data Path -->
+            <div class="step hidden" id="step2">
+                <h2>📂 ขั้นตอนที่ 2: เลือก Data Path</h2>
+                <div class="alert alert-info">
+                    <strong>📋 โครงสร้าง API Response:</strong>
+                    <div class="code-block" id="structureDisplay"></div>
+                </div>
+                <div class="input-group">
+                    <label for="dataPath">🗂️ เลือก Data Path:</label>
+                    <select id="dataPath" style="width: 100%; padding: 12px; font-size: 1rem; border-radius: 8px; border: 2px solid #ddd;">
+                        <option value="">-- กำลังวิเคราะห์... --</option>
+                    </select>
+                    <p style="margin-top: 10px; color: #666; font-size: 0.9rem;">
+                        💡 เลือก path ที่มีข้อมูลเป็น Array หรือ Object
+                    </p>
+                </div>
+                <button onclick="extractFields()">ดึงฟิลด์ข้อมูล</button>
+            </div>
+
+            <!-- Step 3: Field Selection -->
+            <div class="step hidden" id="step3">
+                <h2>📝 ขั้นตอนที่ 3: เลือกฟิลด์ที่ต้องการ</h2>
+                <div class="alert alert-info">
+                    <strong>ข้อมูลตัวอย่าง:</strong>
+                    <div class="code-block" id="sampleDataDisplay"></div>
+                </div>
+                <div class="input-group">
+                    <label for="uniqueKey">🔑 Unique Key (ใช้ป้องกันข้อมูลซ้ำ):</label>
+                    <select id="uniqueKey"></select>
+                </div>
+                <div class="input-group">
+                    <label>✅ เลือกฟิลด์ที่ต้องการบันทึก:</label>
+                    <div class="field-list" id="fieldList"></div>
+                    <button onclick="selectAllFields()" style="margin-top: 10px;">เลือกทั้งหมด</button>
+                </div>
+                <button onclick="goToConfiguration()">ไปขั้นตอนต่อไป</button>
+            </div>
+
+            <!-- Step 4: Configuration -->
+            <div class="step hidden" id="step4">
+                <h2>⚙️ ขั้นตอนที่ 4: ตั้งค่า</h2>
+                <div class="input-group">
+                    <label for="outputFile">💾 ชื่อไฟล์เก็บข้อมูล:</label>
+                    <input type="text" id="outputFile" value="data.txt">
+                </div>
+                <div class="input-group">
+                    <label for="fetchInterval">⏱️ ดึงข้อมูลทุกกี่วินาที:</label>
+                    <input type="number" id="fetchInterval" value="60" min="5">
+                </div>
+                <div class="button-group">
+                    <button class="btn-success" onclick="startFetching()">🚀 เริ่มดึงข้อมูล</button>
+                    <button class="btn-danger hidden" id="stopBtn" onclick="stopFetching()">🛑 หยุด</button>
+                </div>
+            </div>
+
+            <!-- Step 5: Results -->
+            <div class="step hidden" id="step5">
+                <h2>📊 สถิติการดึงข้อมูล</h2>
+                <div id="statusMessage"></div>
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3 id="newItemsCount">0</h3>
+                        <p>ข้อมูลใหม่</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="totalCount">0</h3>
+                        <p>ข้อมูลทั้งหมด</p>
+                    </div>
+                </div>
+                <div class="button-group" style="margin-top: 20px;">
+                    <button onclick="deduplicateData()" class="btn btn-warning">
+                        🗑️ ลบข้อมูลซ้ำ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Wait for Tauri to be ready
+        let invoke;
+        
+        // Initialize Tauri API when window loads
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.__TAURI__) {
+                invoke = window.__TAURI__.core.invoke;
+            } else if (window.__TAURI_INVOKE__) {
+                // Fallback for older Tauri versions
+                invoke = window.__TAURI_INVOKE__;
+            }
+
+            // Check if Tauri is available
+            if (!invoke) {
+                console.error('Tauri API not available');
+                showAlert('step1', '⚠️ Tauri API ไม่พร้อมใช้งาน - กรุณาเปิดแอปผ่าน Tauri', 'error');
+            } else {
+                console.log('Tauri API loaded successfully');
+            }
+        });
+
+        let rawApiData = null;
+        let selectedFields = [];
+        let config = {};
+        let fetchInterval = null;
+
+        // Loading Functions
+        function showLoading(text = 'กำลังโหลด...', subtext = 'กรุณารอสักครู่') {
+            const overlay = document.getElementById('loadingOverlay');
+            const textEl = document.getElementById('loadingText');
+            const subtextEl = document.getElementById('loadingSubtext');
+            
+            if (textEl) textEl.textContent = text;
+            if (subtextEl) subtextEl.textContent = subtext;
+            if (overlay) overlay.classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.classList.add('hidden');
+        }
+
+        function analyzeDataPaths(data, prefix = '') {
+            const paths = [];
+            
+            if (Array.isArray(data)) {
+                // ถ้าเป็น Array โดยตรง
+                if (prefix === '') {
+                    paths.push({ value: '', label: '📦 Root (Array โดยตรง)', count: data.length });
+                } else {
+                    paths.push({ value: prefix, label: `📦 ${prefix} (Array)`, count: data.length });
+                }
+                
+                // วิเคราะห์ต่อใน Array
+                if (data.length > 0 && typeof data[0] === 'object') {
+                    const sample = data[0];
+                    for (const key in sample) {
+                        if (sample[key] && typeof sample[key] === 'object') {
+                            const newPrefix = prefix ? `${prefix}.${key}` : key;
+                            paths.push(...analyzeDataPaths(sample[key], newPrefix));
+                        }
+                    }
+                }
+            } else if (typeof data === 'object' && data !== null) {
+                // ถ้าเป็น Object
+                for (const key in data) {
+                    if (data[key] && typeof data[key] === 'object') {
+                        const newPrefix = prefix ? `${prefix}.${key}` : key;
+                        
+                        if (Array.isArray(data[key])) {
+                            paths.push({ 
+                                value: newPrefix, 
+                                label: `📦 ${newPrefix} (Array)`, 
+                                count: data[key].length 
+                            });
+                            
+                            // วิเคราะห์ต่อใน Array
+                            if (data[key].length > 0) {
+                                paths.push(...analyzeDataPaths(data[key][0], newPrefix));
+                            }
+                        } else {
+                            paths.push(...analyzeDataPaths(data[key], newPrefix));
+                        }
+                    }
+                }
+            }
+            
+            return paths;
+        }
+
+        async function fetchPreview() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                showAlert('step1', '❌ กรุณาใส่ API URL', 'error');
+                return;
+            }
+
+            if (!invoke) {
+                showAlert('step1', '❌ Tauri API ไม่พร้อมใช้งาน', 'error');
+                return;
+            }
+
+            try {
+                showLoading('🔄 กำลังดึงข้อมูลจาก API...', 'กรุณารอสักครู่');
+                
+                console.log('Fetching from:', apiUrl);
+                const result = await invoke('fetch_api_preview', { apiUrl });
+                console.log('Result:', result);
+                
+                hideLoading();
+                
+                if (result.success) {
+                    rawApiData = result.sample_data;
+                    
+                    // แสดง structure
+                    const structureEl = document.getElementById('structureDisplay');
+                    if (structureEl) {
+                        structureEl.textContent = result.structure;
+                        console.log('Structure displayed');
+                    }
+                    
+                    // วิเคราะห์และสร้าง options สำหรับ Data Path
+                    const paths = analyzeDataPaths(rawApiData);
+                    console.log('Found paths:', paths);
+                    
+                    const dataPathSelect = document.getElementById('dataPath');
+                    if (dataPathSelect) {
+                        dataPathSelect.innerHTML = '';
+                        
+                        // เพิ่ม option เริ่มต้น
+                        if (paths.length === 0 || paths[0].value !== '') {
+                            const rootOption = document.createElement('option');
+                            rootOption.value = '';
+                            rootOption.textContent = '📦 Root Level';
+                            dataPathSelect.appendChild(rootOption);
+                        }
+                        
+                        // เพิ่ม options จากการวิเคราะห์
+                        paths.forEach(path => {
+                            const option = document.createElement('option');
+                            option.value = path.value;
+                            option.textContent = `${path.label}${path.count ? ` [${path.count} items]` : ''}`;
+                            dataPathSelect.appendChild(option);
+                        });
+                        
+                        console.log(`Added ${paths.length} path options`);
+                    }
+                    
+                    // แสดง step 2
+                    console.log('Showing step2...');
+                    showStep('step2');
+                    
+                    showAlert('step2', '✅ ดึงข้อมูลสำเร็จ! ดูขั้นตอนถัดไปด้านล่าง', 'success');
+                } else {
+                    showAlert('step1', `❌ ${result.error || 'เกิดข้อผิดพลาด'}`, 'error');
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                hideLoading();
+                showAlert('step1', `❌ เกิดข้อผิดพลาด: ${err}`, 'error');
+            }
+        }
+
+        async function extractFields() {
+            const dataPath = document.getElementById('dataPath').value.trim();
+            const pathArray = dataPath ? dataPath.split('.').map(s => s.trim()) : [];
+
+            if (!invoke) {
+                showAlert('step2', '❌ Tauri API ไม่พร้อมใช้งาน', 'error');
+                return;
+            }
+
+            try {
+                showLoading('🔍 กำลังวิเคราะห์ฟิลด์ข้อมูล...', 'กรุณารอสักครู่');
+                
+                console.log('Extracting fields, path:', pathArray);
+                const result = await invoke('extract_data_fields', { 
+                    rawData: rawApiData, 
+                    dataPath: pathArray 
+                });
+                console.log('Fields result:', result);
+
+                hideLoading();
+
+                if (result.success) {
+                    console.log('Result is success, fields:', result.fields);
+                    
+                    // แสดง step3 ก่อน
+                    console.log('Showing step3...');
+                    const step3 = document.getElementById('step3');
+                    console.log('Step3 element:', step3);
+                    
+                    if (!step3) {
+                        console.error('CRITICAL: step3 element not found in DOM!');
+                        showAlert('step2', 'Critical Error: step3 not found. Please reload page.', 'error');
+                        return;
+                    }
+                    
+                    // Debug: ดู innerHTML ของ step3
+                    console.log('Step3 innerHTML length:', step3.innerHTML.length);
+                    console.log('Step3 children count:', step3.children.length);
+                    console.log('Step3 first 300 chars:', step3.innerHTML.substring(0, 300));
+                    
+                    showStep('step3');
+                    
+                    // รอให้ DOM render (เพิ่มเป็น 500ms)
+                    setTimeout(() => {
+                        console.log('Looking for child elements...');
+                        
+                        // ลองหาทั้งแบบ normal และ query selector
+                        const sampleDataEl = document.getElementById('sampleDataDisplay');
+                        const uniqueKeySelect = document.getElementById('uniqueKey');
+                        const fieldList = document.getElementById('fieldList');
+                        
+                        // Double check ด้วย querySelector
+                        const sampleDataEl2 = document.querySelector('#sampleDataDisplay');
+                        const uniqueKeySelect2 = document.querySelector('#uniqueKey');
+                        const fieldList2 = document.querySelector('#fieldList');
+                        
+                        console.log('getElementById results:');
+                        console.log('  - sampleDataEl:', sampleDataEl);
+                        console.log('  - uniqueKeySelect:', uniqueKeySelect);
+                        console.log('  - fieldList:', fieldList);
+                        
+                        console.log('querySelector results:');
+                        console.log('  - sampleDataEl2:', sampleDataEl2);
+                        console.log('  - uniqueKeySelect2:', uniqueKeySelect2);
+                        console.log('  - fieldList2:', fieldList2);
+                        
+                        // ใช้ตัวที่เจอ
+                        const finalUniqueKey = uniqueKeySelect || uniqueKeySelect2;
+                        const finalFieldList = fieldList || fieldList2;
+                        const finalSampleData = sampleDataEl || sampleDataEl2;
+                        
+                        if (!finalUniqueKey || !finalFieldList) {
+                            console.error('STILL NOT FOUND after 500ms!');
+                            console.error('All elements in body:', document.body.innerHTML.substring(0, 500));
+                            showAlert('step2', 'Elements not found. HARD REFRESH required (Ctrl+Shift+R)', 'error');
+                            return;
+                        }
+                        
+                        console.log('SUCCESS! Elements found');
+                        
+                        // แสดงข้อมูลตัวอย่าง
+                        if (finalSampleData) {
+                            finalSampleData.textContent = JSON.stringify(result.sample_data, null, 2);
+                        }
+                        
+                        // Populate fields
+                        finalUniqueKey.innerHTML = '';
+                        finalFieldList.innerHTML = '';
+
+                        result.fields.forEach((field, index) => {
+                            // Unique key dropdown
+                            const option = document.createElement('option');
+                            option.value = field;
+                            option.textContent = field;
+                            if (index === 0) option.selected = true;
+                            finalUniqueKey.appendChild(option);
+
+                            // Field checkboxes
+                            const fieldItem = document.createElement('div');
+                            fieldItem.className = 'field-item';
+                            fieldItem.innerHTML = `
+                                <input type="checkbox" id="field_${field}" value="${field}" checked>
+                                <label for="field_${field}">${field}</label>
+                            `;
+                            finalFieldList.appendChild(fieldItem);
+                        });
+
+                        console.log('Populated', result.fields.length, 'fields');
+                        showAlert('step3', 'Fields extracted successfully!', 'success');
+                    }, 500);
+                } else {
+                    showAlert('step2', `Error: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                hideLoading();
+                showAlert('step2', `Error: ${err}`, 'error');
+            }
+        }
+
+        function selectAllFields() {
+            const checkboxes = document.querySelectorAll('#fieldList input[type="checkbox"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+        }
+
+        function goToConfiguration() {
+            const uniqueKey = document.getElementById('uniqueKey').value;
+            const checkboxes = document.querySelectorAll('#fieldList input[type="checkbox"]:checked');
+            selectedFields = Array.from(checkboxes).map(cb => cb.value);
+
+            console.log('Selected fields:', selectedFields);
+
+            if (selectedFields.length === 0) {
+                alert('Please select at least 1 field');
+                return;
+            }
+
+            console.log('Showing step4...');
+            showStep('step4');
+            alert('Fields selected! See next step below.');
+        }
+
+        async function startFetching() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const dataPath = document.getElementById('dataPath').value.trim();
+            const outputFile = document.getElementById('outputFile').value.trim();
+            const fetchIntervalSec = parseInt(document.getElementById('fetchInterval').value);
+            const uniqueKey = document.getElementById('uniqueKey').value;
+
+            config = {
+                api_url: apiUrl,
+                output_file: outputFile,
+                fetch_interval_seconds: fetchIntervalSec,
+                selected_fields: selectedFields,
+                unique_key: uniqueKey,
+                data_path: dataPath ? dataPath.split('.').map(s => s.trim()) : []
+            };
+
+            console.log('Config:', config);
+            console.log('Showing step5...');
+            
+            showStep('step5');
+            const stopBtn = document.getElementById('stopBtn');
+            if (stopBtn) {
+                stopBtn.classList.remove('hidden');
+            }
+
+            // Fetch ทันที
+            await doFetch();
+
+            // ตั้ง interval
+            fetchInterval = setInterval(doFetch, fetchIntervalSec * 1000);
+            console.log('⏰ Interval set:', fetchIntervalSec, 'seconds');
+        }
+
+        async function doFetch() {
+            if (!invoke) {
+                showAlert('step5', '❌ Tauri API ไม่พร้อมใช้งาน', 'error');
+                return;
+            }
+
+            try {
+                showAlert('step5', '🔄 กำลังดึงข้อมูล...', 'info');
+                const result = await invoke('start_fetching', { config });
+
+                if (result.success) {
+                    const newItemsEl = document.getElementById('newItemsCount');
+                    const totalEl = document.getElementById('totalCount');
+                    
+                    if (newItemsEl) newItemsEl.textContent = result.new_items_count;
+                    if (totalEl) totalEl.textContent = result.total_count;
+                    
+                    showAlert('step5', `✅ ${result.message}`, 'success');
+                } else {
+                    showAlert('step5', `❌ เกิดข้อผิดพลาด`, 'error');
+                }
+            } catch (err) {
+                showAlert('step5', `❌ ${err}`, 'error');
+            }
+        }
+
+        function stopFetching() {
+            if (fetchInterval) {
+                clearInterval(fetchInterval);
+                fetchInterval = null;
+            }
+            invoke('stop_fetching');
+            document.getElementById('stopBtn').classList.add('hidden');
+            showAlert('step5', '🛑 หยุดดึงข้อมูลแล้ว', 'info');
+        }   
+
+        async function deduplicateData() {
+            if (!config.output_file || !config.unique_key) {
+                showAlert('step5', '❌ กรุณาตั้งค่าไฟล์ output และ unique key ก่อน', 'error');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to remove duplicates?\n\nFile: ${config.output_file}\nUnique Key: ${config.unique_key}\n\nUnique data will be kept.\nDuplicate data will be removed.`)) {
+                return;
+            }
+
+            try {
+                showLoading('🗑️ กำลังลบข้อมูลซ้ำ...', 'กรุณารอสักครู่');
+                
+                const result = await invoke('deduplicate_file', {
+                    filePath: config.output_file,
+                    uniqueKey: config.unique_key
+                });
+
+                hideLoading();
+
+                if (result && result.success) {
+                    const totalEl = document.getElementById('totalCount');
+                    if (totalEl) totalEl.textContent = result.total_count;
+                    
+                    showAlert('step5', `✅ ${result.message}\n📊 เหลือข้อมูล: ${result.total_count} รายการ`, 'success');
+                } else {
+                    showAlert('step5', `❌ เกิดข้อผิดพลาด`, 'error');
+                }
+            } catch (err) {
+                hideLoading();
+                showAlert('step5', `❌ ${err}`, 'error');
+            }
+        }
+
+        function showStep(stepId) {
+            const element = document.getElementById(stepId);
+            if (element) {
+                element.classList.remove('hidden');
+                console.log('Showing step:', stepId);
+                
+                // Scroll to the step smoothly
+                setTimeout(() => {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            } else {
+                console.error('Step not found:', stepId);
+            }
+        }
+
+        function showAlert(stepId, message, type) {
+            const resultDiv = document.querySelector(`#${stepId} + div`) || 
+                             document.getElementById('statusMessage') ||
+                             document.getElementById('previewResult');
+            
+            if (!resultDiv) return;
+
+            resultDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html>
+

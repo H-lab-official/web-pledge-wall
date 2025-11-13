@@ -1,8 +1,13 @@
 # Rust
 /target/
+**/target/
 Cargo.lock
 **/*.rs.bk
 *.pdb
+
+# Tauri
+src-tauri/target/
+src-tauri/WixTools/
 
 # Output files
 *.txt

@@ -18,7 +18,8 @@
   margin: 0;
 }
 
-.refresh-btn {
+.refresh-btn,
+.approve-all-btn {
   background: white;
   color: #667eea;
   border: none;
@@ -29,9 +30,25 @@
   transition: all 0.3s ease;
 }
 
-.refresh-btn:hover {
+.approve-all-btn {
+  background: #28a745;
+  color: white;
+}
+
+.approve-all-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.refresh-btn:hover,
+.approve-all-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.approve-all-btn:hover:not(:disabled) {
+  background: #218838;
 }
 
 .loading-container {

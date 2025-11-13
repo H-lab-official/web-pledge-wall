@@ -21,7 +21,7 @@ export const submitMessage = async (message: string, author?: string): Promise<s
   const messageData = {
     message,
     author: author || 'Anonymous',
-    status: 'pending',
+    status: 'approved', // อนุมัติอัตโนมัติ (เปลี่ยนจาก 'pending')
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
     reportedCount: 0
