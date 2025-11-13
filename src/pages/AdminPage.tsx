@@ -10,6 +10,7 @@ import {
 import { PledgeMessage } from '../types'
 import { checkProfanity } from '../utils/profanityFilter'
 import Modal from '../components/Modal'
+import ModeIndicator from '../components/ModeIndicator'
 import './AdminPage.css'
 
 const AdminPage = () => {
@@ -215,6 +216,7 @@ const AdminPage = () => {
 
   return (
     <div className="admin-page">
+      <ModeIndicator />
       <div className="admin-header">
         <h2>⚙️ จัดการข้อความ</h2>
         <div style={{ display: 'flex', gap: '10px' }}>

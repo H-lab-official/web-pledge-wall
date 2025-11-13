@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getApprovedMessages } from '../services/messageService'
 import { PledgeMessage } from '../types'
+import ModeIndicator from '../components/ModeIndicator'
 import './DisplayPage.css'
 
 const DisplayPage = () => {
@@ -52,6 +53,7 @@ const DisplayPage = () => {
 
   return (
     <div className="display-page">
+      <ModeIndicator />
       <div className="display-header">
         <h2>📋 Pledge Wall</h2>
         <button onClick={loadMessages} className="refresh-btn">
