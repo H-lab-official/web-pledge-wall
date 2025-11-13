@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import FormInput from '../components/FormInput'
 // import FormTextarea from '../components/FormTextarea'
 import ErrorModal from '../components/ErrorModal'
-import ModeIndicator from '../components/ModeIndicator'
 
 // Import keyboard sound
 import keyboardSound from '../assets/sounds/keyboard-click.mp3'
@@ -435,9 +434,6 @@ const SubmitPage = () => {
 
   return (
     <div className="relative w-full min-h-screen overflow-hidden ">
-      {/* Mode Indicator */}
-      <ModeIndicator />
-      
       <style>{`
         @keyframes floatLayer1 {
           0%, 100% { transform: translate(0, 0) scale(1); }

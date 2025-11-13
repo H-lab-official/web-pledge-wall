@@ -1,11 +1,13 @@
 /**
- * Message Service
+ * Message Service with Fallback Support
  * สลับระหว่าง Firebase และ Express API ตามการตั้งค่าใน appConfig
+ * พร้อมระบบ fallback สำหรับกรณีล้มเหลวหรือช้าเกินไป
  */
 
 import { PledgeMessage } from '../types'
-import { APP_MODE } from '../config/appConfig'
+import { APP_MODE, API_CONFIG } from '../config/appConfig'
 import { FirebaseAdapter, ExpressApiAdapter, type IMessageAdapter } from './apiAdapter'
+import { BackupApiAdapter, shouldUseFallback, createBackupAdapter } from './fallbackAdapter'
 
 // สร้าง adapter instance ตาม mode
 const getAdapter = (): IMessageAdapter => {
@@ -21,10 +23,87 @@ const getAdapter = (): IMessageAdapter => {
 // Singleton adapter instance
 const adapter = getAdapter()
 
+// Backup adapter (สร้างเมื่อจำเป็น)
+let backupAdapter: BackupApiAdapter | null = null
+
+/**
+ * ส่งข้อความพร้อมระบบ fallback
+ * 1. ลองส่งไปยัง primary (Firebase/Express) ก่อน
+ * 2. ถ้าล้มเหลวหรือเกิน timeout → ใช้ backup server
+ * 3. ถ้า backup ล้มเหลว → เก็บไว้ใน localStorage
+ */
+const submitWithTimeout = async (
+  message: string, 
+  author?: string, 
+  timeout: number = API_CONFIG.PRIMARY_TIMEOUT
+): Promise<string> => {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+  try {
+    const result = await adapter.submitMessage(message, author)
+    clearTimeout(timeoutId)
+    return result
+  } catch (error) {
+    clearTimeout(timeoutId)
+    throw error
+  }
+}
+
 // ==================== Public API ====================
 
 export const submitMessage = async (message: string, author?: string): Promise<string> => {
-  return adapter.submitMessage(message, author)
+  // ลอง primary ก่อน
+  try {
+    console.log('📤 [Primary] Attempting to submit...')
+    const result = await submitWithTimeout(message, author, API_CONFIG.PRIMARY_TIMEOUT)
+    console.log('✅ [Primary] Submitted successfully:', result)
+    return result
+  } catch (primaryError) {
+    console.warn('⚠️ [Primary] Failed or timeout:', primaryError)
+
+    // ถ้าเปิด fallback และมี backup URL
+    if (shouldUseFallback() && API_CONFIG.BACKUP_API_URL) {
+      try {
+        console.log('🔄 [Fallback] Trying backup server...')
+        
+        // สร้าง backup adapter ถ้ายังไม่มี
+        if (!backupAdapter) {
+          backupAdapter = createBackupAdapter()
+        }
+
+        const backupResult = await backupAdapter.submitMessage(message, author)
+        console.log('✅ [Fallback] Backup successful:', backupResult)
+        
+        // แจ้งเตือนผู้ใช้ว่าใช้ backup (optional)
+        if (typeof window !== 'undefined') {
+          console.info('ℹ️ Message saved to backup server')
+        }
+        
+        return backupResult
+      } catch (backupError) {
+        console.error('❌ [Fallback] Backup also failed:', backupError)
+        
+        // บันทึกลง localStorage เป็นทางเลือกสุดท้าย
+        try {
+          if (!backupAdapter) {
+            backupAdapter = createBackupAdapter()
+          }
+          await backupAdapter.saveToLocalStorage(message, author)
+          console.log('💾 [Fallback] Saved to localStorage for retry')
+          
+          // คืนค่า temporary ID
+          return `temp_${Date.now()}`
+        } catch {
+          console.error('❌ [Fallback] All fallback methods failed')
+          throw new Error('Failed to submit message. All methods exhausted.')
+        }
+      }
+    }
+
+    // ถ้าไม่เปิด fallback หรือไม่มี backup URL
+    throw primaryError
+  }
 }
 
 export const getApprovedMessages = async (): Promise<PledgeMessage[]> => {
@@ -76,6 +155,53 @@ export const checkConnection = async (): Promise<boolean> => {
 // ดึงข้อมูล mode ปัจจุบัน
 export const getCurrentMode = () => APP_MODE
 
+// ==================== Fallback Management ====================
+
+/**
+ * ดึงข้อความที่ล้มเหลว (เก็บไว้ใน localStorage)
+ */
+export const getFailedMessages = () => {
+  if (!backupAdapter) {
+    backupAdapter = createBackupAdapter()
+  }
+  return backupAdapter.getFailedMessages()
+}
+
+/**
+ * ลองส่งข้อความที่ล้มเหลวทั้งหมดใหม่
+ */
+export const retryFailedMessages = async () => {
+  if (!backupAdapter) {
+    backupAdapter = createBackupAdapter()
+  }
+  return backupAdapter.retryFailedMessages()
+}
+
+/**
+ * ลบข้อความที่ล้มเหลวทั้งหมด
+ */
+export const clearFailedMessages = () => {
+  if (!backupAdapter) {
+    backupAdapter = createBackupAdapter()
+  }
+  return backupAdapter.clearFailedMessages()
+}
+
+/**
+ * ตรวจสอบว่า backup server ใช้งานได้หรือไม่
+ */
+export const checkBackupServer = async (): Promise<boolean> => {
+  if (!shouldUseFallback() || !API_CONFIG.BACKUP_API_URL) {
+    return false
+  }
+  
+  if (!backupAdapter) {
+    backupAdapter = createBackupAdapter()
+  }
+  
+  return backupAdapter.checkHealth()
+}
+
 // Export adapter สำหรับการใช้งานขั้นสูง (ถ้าจำเป็น)
-export { adapter }
+export { adapter, backupAdapter }
 
