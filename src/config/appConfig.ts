@@ -4,14 +4,19 @@
 export type AppMode = 'online' | 'offline'
 
 // ⚙️ เปลี่ยนค่านี้เพื่อสลับระหว่าง mode
+<<<<<<< HEAD
 // สำหรับงานที่มีคนเยอะ: ใช้ 'offline' เพื่อใช้ Local Server เป็นหลัก
 // 'offline' = เชื่อมต่อกับ Express Server บน LAN (ไม่ต้องพึ่ง internet)
 // 'online' = เชื่อมต่อกับ Firebase (ต้องมี internet ดี)
 export const APP_MODE = 'offline' as AppMode
+=======
+export const APP_MODE = 'online' as AppMode
+>>>>>>> f9f03b8851a9d1e5436336495ca1b99d4608a136
 
 // API Configuration
 export const API_CONFIG = {
   // Express server local (สำหรับ offline mode)
+<<<<<<< HEAD
   // ⚙️ สำหรับงาน: ใช้ IP ของเครื่อง server ในงาน
   LOCAL_API_URL: 'http://192.168.11.18:3001/api', // เปลี่ยนจาก localhost เป็น IP จริง
   
@@ -26,6 +31,12 @@ export const API_CONFIG = {
   
   // Fallback settings
   ENABLE_FALLBACK: false,  // ปิด fallback สำหรับงาน (offline mode ส่งตรงไปเลย)
+=======
+  LOCAL_API_URL: 'http://localhost:3001/api',
+  
+  // Timeout settings
+  REQUEST_TIMEOUT: 10000, // 10 วินาที
+>>>>>>> f9f03b8851a9d1e5436336495ca1b99d4608a136
 } as const
 
 // Mode descriptions

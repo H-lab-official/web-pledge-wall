@@ -1,4 +1,5 @@
 /**
+<<<<<<< HEAD
  * Message Service with Fallback Support
  * สลับระหว่าง Firebase และ Express API ตามการตั้งค่าใน appConfig
  * พร้อมระบบ fallback สำหรับกรณีล้มเหลวหรือช้าเกินไป
@@ -8,6 +9,15 @@ import { PledgeMessage } from '../types'
 import { APP_MODE, API_CONFIG } from '../config/appConfig'
 import { FirebaseAdapter, ExpressApiAdapter, type IMessageAdapter } from './apiAdapter'
 import { BackupApiAdapter, shouldUseFallback, createBackupAdapter } from './fallbackAdapter'
+=======
+ * Message Service
+ * สลับระหว่าง Firebase และ Express API ตามการตั้งค่าใน appConfig
+ */
+
+import { PledgeMessage } from '../types'
+import { APP_MODE } from '../config/appConfig'
+import { FirebaseAdapter, ExpressApiAdapter, type IMessageAdapter } from './apiAdapter'
+>>>>>>> f9f03b8851a9d1e5436336495ca1b99d4608a136
 
 // สร้าง adapter instance ตาม mode
 const getAdapter = (): IMessageAdapter => {
@@ -23,6 +33,7 @@ const getAdapter = (): IMessageAdapter => {
 // Singleton adapter instance
 const adapter = getAdapter()
 
+<<<<<<< HEAD
 // Backup adapter (สร้างเมื่อจำเป็น)
 let backupAdapter: BackupApiAdapter | null = null
 
@@ -104,6 +115,12 @@ export const submitMessage = async (message: string, author?: string): Promise<s
     // ถ้าไม่เปิด fallback หรือไม่มี backup URL
     throw primaryError
   }
+=======
+// ==================== Public API ====================
+
+export const submitMessage = async (message: string, author?: string): Promise<string> => {
+  return adapter.submitMessage(message, author)
+>>>>>>> f9f03b8851a9d1e5436336495ca1b99d4608a136
 }
 
 export const getApprovedMessages = async (): Promise<PledgeMessage[]> => {
@@ -155,6 +172,7 @@ export const checkConnection = async (): Promise<boolean> => {
 // ดึงข้อมูล mode ปัจจุบัน
 export const getCurrentMode = () => APP_MODE
 
+<<<<<<< HEAD
 // ==================== Fallback Management ====================
 
 /**
@@ -204,4 +222,8 @@ export const checkBackupServer = async (): Promise<boolean> => {
 
 // Export adapter สำหรับการใช้งานขั้นสูง (ถ้าจำเป็น)
 export { adapter, backupAdapter }
+=======
+// Export adapter สำหรับการใช้งานขั้นสูง (ถ้าจำเป็น)
+export { adapter }
+>>>>>>> f9f03b8851a9d1e5436336495ca1b99d4608a136
 
