@@ -31,7 +31,7 @@ const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(({
         {label}
       </label>
       <motion.input
-        ref={ref}
+        ref={ref as React.Ref<HTMLInputElement>}
         animate={shakeAnimation}
         className={`${baseInputClass} ${className}`}
         {...inputProps}

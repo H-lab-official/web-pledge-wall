@@ -224,13 +224,33 @@ const SubmitPage = () => {
 
   // Auto focus on first input when entering form
   useEffect(() => {
-    if (flowState === 'form' && authorInputRef.current) {
-      // Small delay to ensure the element is rendered
-      setTimeout(() => {
-        authorInputRef.current?.focus()
-      }, 100)
+    if (flowState !== 'form' || isTransitioningToSuccess) return
+
+    const focusInput = () => {
+      const input = authorInputRef.current
+      if (input) {
+        input.focus()
+        const length = input.value.length
+        input.setSelectionRange(length, length)
+      }
     }
-  }, [flowState])
+
+    // Run immediately in case input already mounted
+    focusInput()
+
+    // Multiple attempts to ensure focus works on all devices
+    const timer1 = setTimeout(focusInput, 100)
+    const timer2 = setTimeout(focusInput, 300)
+    const timer3 = setTimeout(() => {
+      requestAnimationFrame(focusInput)
+    }, 500)
+
+    return () => {
+      clearTimeout(timer1)
+      clearTimeout(timer2)
+      clearTimeout(timer3)
+    }
+  }, [flowState, isTransitioningToSuccess])
 
   // Handle Enter key on author input (move to next field)
   const handleAuthorKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -832,6 +852,7 @@ const SubmitPage = () => {
                   value={author}
                   onChange={handleAuthorChange}
                   onKeyDown={handleAuthorKeyDown}
+                  autoFocus
                   containerClassName="flex w-full flex-col items-center gap-4 h-30 w-full"
                   className="flex-1 min-w-0 bg-black/10 text-center text-3xl font-anuphan w-[90%] "
                   shake={shakeAuthor && !author.trim()}
