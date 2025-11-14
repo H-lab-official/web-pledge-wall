@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 
 import { checkProfanity } from '../utils/profanityFilter'
 import { submitMessage } from '../services/messageService'
@@ -102,6 +102,16 @@ const SubmitPage = () => {
   // Refs for input fields
   const authorInputRef = useRef<HTMLInputElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
+
+  const ensureAudioReady = useCallback(async () => {
+    try {
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume()
+      }
+    } catch (error) {
+      console.error('Error resuming audio context:', error)
+    }
+  }, [])
 
   // ฟังก์ชันเล่นเสียงแป้นพิมพ์ (iOS-friendly)
   const playKeySound = async () => {
@@ -207,6 +217,17 @@ const SubmitPage = () => {
       clearInterval(timer)
     }
   }, [flowState])
+  
+  useEffect(() => {
+    const events = ['pointerdown', 'touchstart', 'keydown', 'visibilitychange'] as const
+    const handler = () => {
+      void ensureAudioReady()
+    }
+    events.forEach((evt) => window.addEventListener(evt, handler, { passive: true }))
+    return () => {
+      events.forEach((evt) => window.removeEventListener(evt, handler))
+    }
+  }, [ensureAudioReady])
 
   // Handle Enter key press on start screen
   useEffect(() => {
@@ -827,7 +848,10 @@ const SubmitPage = () => {
                 <p className='text-8xl font-bold font-anuphan text-[#FF8585]'>Wishing well</p>
               </div>
               <button
-                onClick={() => setFlowState('form')}
+                onClick={() => {
+                  void ensureAudioReady()
+                  setFlowState('form')
+                }}
                 className='flex items-center gap-2 bg-[#6F7DFD] text-white px-6 py-4 rounded-full text-5xl w-64 h-20 justify-center'
               >
                 Start
