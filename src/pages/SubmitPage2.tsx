@@ -24,6 +24,7 @@ const SubmitPage = () => {
   const [countdown, setCountdown] = useState(15)
   const [isTransitioningToSuccess, setIsTransitioningToSuccess] = useState(false)
   const [showBackgroundSVG, setShowBackgroundSVG] = useState(true)
+  const [audioUnlocked, setAudioUnlocked] = useState(false)
 
   // Audio for keyboard clicks
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -60,9 +61,19 @@ const SubmitPage = () => {
       if (isAudioInitialized.current) return
 
       try {
-        // สร้าง AudioContext
+        // สร้าง AudioContext (รองรับทั้ง standard และ webkit สำหรับ iOS)
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
-        audioContextRef.current = new AudioContextClass()
+        if (!AudioContextClass) {
+          console.error('❌ AudioContext not supported')
+          return
+        }
+        
+        // สร้าง AudioContext พร้อม options สำหรับ iOS PWA
+        audioContextRef.current = new AudioContextClass({
+          latencyHint: 'interactive',
+          sampleRate: 44100
+        })
+        console.log('🎵 AudioContext created, initial state:', audioContextRef.current.state)
 
         // Load ไฟล์เสียง
         const response = await fetch(keyboardSound)
@@ -70,25 +81,53 @@ const SubmitPage = () => {
         audioBufferRef.current = await audioContextRef.current.decodeAudioData(arrayBuffer)
 
         isAudioInitialized.current = true
-        console.log('🔊 Audio initialized with custom sound')
+        console.log('✅ Audio initialized with custom sound, buffer duration:', audioBufferRef.current.duration)
+        
+        // Resume ทันทีหลัง init และเล่นเสียงเบาๆ เพื่อ unlock (สำหรับ PWA)
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume()
+          console.log('🔊 AudioContext resumed after init, state:', audioContextRef.current.state)
+        }
+        
+        // รอให้ AudioContext พร้อม
+        await new Promise(resolve => setTimeout(resolve, 150))
+        
+        // เล่นเสียงเงียบ (silent preload) เพื่อ bypass silent mode
+        if (audioContextRef.current.state === 'running' && audioBufferRef.current) {
+          const source = audioContextRef.current.createBufferSource()
+          const gainNode = audioContextRef.current.createGain()
+          source.buffer = audioBufferRef.current
+          source.connect(gainNode)
+          gainNode.connect(audioContextRef.current.destination)
+          gainNode.gain.value = 0.001 // เสียงเบามากๆ เกือบเงียบ
+          source.start(0)
+          console.log('🔇 Silent preload sound played to unlock audio')
+        }
       } catch (error) {
-        console.error('Failed to initialize audio:', error)
+        console.error('❌ Failed to initialize audio:', error)
       }
     }
 
-    // Initialize หลังจาก user interaction
+    // Initialize ทันทีเมื่อ component mount
+    initAudio()
+
+    // Initialize หลังจาก user interaction (สำรอง)
     const handleFirstInteraction = () => {
+      console.log('👆 First user interaction detected')
       initAudio()
       document.removeEventListener('click', handleFirstInteraction)
       document.removeEventListener('touchstart', handleFirstInteraction)
+      document.removeEventListener('keydown', handleFirstInteraction)
     }
 
-    document.addEventListener('click', handleFirstInteraction)
-    document.addEventListener('touchstart', handleFirstInteraction)
+    document.addEventListener('click', handleFirstInteraction, { passive: true })
+    document.addEventListener('touchstart', handleFirstInteraction, { passive: true })
+    document.addEventListener('keydown', handleFirstInteraction)
 
     return () => {
       document.removeEventListener('click', handleFirstInteraction)
       document.removeEventListener('touchstart', handleFirstInteraction)
+      document.removeEventListener('keydown', handleFirstInteraction)
       if (audioContextRef.current?.state === 'running') {
         audioContextRef.current.close()
       }
@@ -115,60 +154,57 @@ const SubmitPage = () => {
 
   // ฟังก์ชันเล่นเสียงแป้นพิมพ์ (iOS-friendly)
   const playKeySound = async () => {
-    if (!audioContextRef.current) {
-      console.warn('AudioContext not initialized')
+    if (!audioContextRef.current || !audioBufferRef.current) {
+      console.warn('AudioContext or buffer not initialized')
       return
     }
 
     try {
-      // Resume AudioContext ถ้า suspended (สำคัญสำหรับ iOS!)
-      if (audioContextRef.current.state === 'suspended') {
-        console.log('Resuming AudioContext...')
+      // Force resume AudioContext ทุกครั้ง (สำคัญสำหรับ iOS PWA!)
+      if (audioContextRef.current.state !== 'running') {
+        console.log('🔄 Resuming AudioContext... current state:', audioContextRef.current.state)
         await audioContextRef.current.resume()
+        console.log('✅ AudioContext resumed, new state:', audioContextRef.current.state)
       }
 
       // เช็คอีกครั้งหลัง resume
       if (audioContextRef.current.state !== 'running') {
-        console.warn('AudioContext state:', audioContextRef.current.state)
+        console.error('❌ AudioContext still not running:', audioContextRef.current.state)
         return
       }
 
-      // ถ้ามีไฟล์เสียง - ใช้ buffer
-      if (audioBufferRef.current) {
-        const source = audioContextRef.current.createBufferSource()
-        const gainNode = audioContextRef.current.createGain()
-        
-        source.buffer = audioBufferRef.current
-        source.connect(gainNode)
-        gainNode.connect(audioContextRef.current.destination)
-        
-        gainNode.gain.value = 0.5 // เพิ่มความดังสำหรับ iOS
-        source.start(0)
-      } else {
-        // ถ้าไม่มีไฟล์ - สร้างเสียงสั้นๆ (fallback)
-        console.log('Using generated sound (fallback)')
-        const oscillator = audioContextRef.current.createOscillator()
-        const gainNode = audioContextRef.current.createGain()
-        
-        oscillator.connect(gainNode)
-        gainNode.connect(audioContextRef.current.destination)
-        
-        oscillator.frequency.value = 800 // เสียงสูง (Hz)
-        oscillator.type = 'sine'
-        
-        gainNode.gain.setValueAtTime(0.3, audioContextRef.current.currentTime)
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.04)
-        
-        oscillator.start(audioContextRef.current.currentTime)
-        oscillator.stop(audioContextRef.current.currentTime + 0.04) // เล่น 40ms
-      }
+      // สร้าง source node ใหม่ทุกครั้ง
+      const source = audioContextRef.current.createBufferSource()
+      const gainNode = audioContextRef.current.createGain()
+      
+      source.buffer = audioBufferRef.current
+      source.connect(gainNode)
+      gainNode.connect(audioContextRef.current.destination)
+      
+      // ตั้งค่าความดังสูงสุดสำหรับ PWA
+      gainNode.gain.value = 2.0 // เพิ่มเป็น 200% สำหรับ PWA
+      
+      // เล่นเสียงทันที
+      source.start(0)
+      
+      console.log('🔊 Sound played, volume: 2.0')
     } catch (error) {
-      console.error('Error playing key sound:', error)
+      console.error('❌ Error playing key sound:', error)
     }
   }
 
   // Handle input change with sound for Author
   const handleAuthorChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Resume audio context ทุกครั้งก่อนเล่นเสียง (สำคัญสำหรับ PWA)
+    if (audioContextRef.current && audioContextRef.current.state !== 'running') {
+      try {
+        await audioContextRef.current.resume()
+        console.log('Audio resumed before play, state:', audioContextRef.current.state)
+      } catch (error) {
+        console.error('Failed to resume before play:', error)
+      }
+    }
+    
     const newValue = e.target.value
     // เล่นเสียงเฉพาะเมื่อมีการพิมพ์เพิ่ม (ไม่ใช่การลบ)
     if (newValue.length > prevAuthorRef.current.length) {
@@ -178,8 +214,55 @@ const SubmitPage = () => {
     setAuthor(newValue)
   }
 
+  // Handle focus on Author input - resume audio for iOS/iPad
+  const handleAuthorFocus = async () => {
+    console.log('👆 Author input focused')
+    if (audioContextRef.current) {
+      try {
+        console.log('🔄 Current AudioContext state:', audioContextRef.current.state)
+        
+        // Force resume แบบ aggressive สำหรับ PWA
+        if (audioContextRef.current.state !== 'running') {
+          await audioContextRef.current.resume()
+          console.log('✅ Audio resumed on Author focus, new state:', audioContextRef.current.state)
+        }
+        
+        // รอให้ AudioContext พร้อม
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // เล่นเสียงเงียบเพื่อ unlock audio บน PWA (ไม่ให้ได้ยิน)
+        if (audioBufferRef.current && audioContextRef.current.state === 'running') {
+          const source = audioContextRef.current.createBufferSource()
+          const gainNode = audioContextRef.current.createGain()
+          source.buffer = audioBufferRef.current
+          source.connect(gainNode)
+          gainNode.connect(audioContextRef.current.destination)
+          gainNode.gain.value = 0.001 // เสียงเงียบมากๆ เพื่อ unlock เท่านั้น
+          source.start(0)
+          console.log('🔇 Silent unlock sound played on focus')
+        } else {
+          console.warn('⚠️ Cannot play test sound, AudioContext state:', audioContextRef.current.state)
+        }
+      } catch (error) {
+        console.error('❌ Failed to resume audio on focus:', error)
+      }
+    } else {
+      console.error('❌ AudioContext not initialized')
+    }
+  }
+
   // Handle input change with sound for Message
   const handleMessageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Resume audio context ทุกครั้งก่อนเล่นเสียง (สำคัญสำหรับ PWA)
+    if (audioContextRef.current && audioContextRef.current.state !== 'running') {
+      try {
+        await audioContextRef.current.resume()
+        console.log('Audio resumed before play, state:', audioContextRef.current.state)
+      } catch (error) {
+        console.error('Failed to resume before play:', error)
+      }
+    }
+    
     const newValue = e.target.value
     // เล่นเสียงเฉพาะเมื่อมีการพิมพ์เพิ่ม (ไม่ใช่การลบ)
     if (newValue.length > prevMessageRef.current.length) {
@@ -189,24 +272,54 @@ const SubmitPage = () => {
     setMessage(newValue)
   }
 
+  // Handle focus on Message input - resume audio for iOS/iPad
+  const handleMessageFocus = async () => {
+    console.log('👆 Message input focused')
+    if (audioContextRef.current) {
+      try {
+        console.log('🔄 Current AudioContext state:', audioContextRef.current.state)
+        
+        // Force resume แบบ aggressive สำหรับ PWA
+        if (audioContextRef.current.state !== 'running') {
+          await audioContextRef.current.resume()
+          console.log('✅ Audio resumed on Message focus, new state:', audioContextRef.current.state)
+        }
+        
+        // รอให้ AudioContext พร้อม
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // เล่นเสียงเงียบเพื่อ unlock audio บน PWA (ไม่ให้ได้ยิน)
+        if (audioBufferRef.current && audioContextRef.current.state === 'running') {
+          const source = audioContextRef.current.createBufferSource()
+          const gainNode = audioContextRef.current.createGain()
+          source.buffer = audioBufferRef.current
+          source.connect(gainNode)
+          gainNode.connect(audioContextRef.current.destination)
+          gainNode.gain.value = 0.001 // เสียงเงียบมากๆ เพื่อ unlock เท่านั้น
+          source.start(0)
+          console.log('🔇 Silent unlock sound played on focus')
+        } else {
+          console.warn('⚠️ Cannot play test sound, AudioContext state:', audioContextRef.current.state)
+        }
+      } catch (error) {
+        console.error('❌ Failed to resume audio on focus:', error)
+      }
+    } else {
+      console.error('❌ AudioContext not initialized')
+    }
+  }
+
   // Countdown timer for success state
   useEffect(() => {
     if (flowState !== 'success') return
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
-        if (prev <= 1) {
+        if (prev <= 0) {
           clearInterval(timer)
-          // Fade out background ก่อน
-          setShowBackgroundSVG(false)
-          // เปลี่ยน state หลัง 400ms
-          setTimeout(() => {
-            setFlowState('start')
-          }, 400)
-          // Fade in background หลัง 600ms
-          setTimeout(() => {
-            setShowBackgroundSVG(true)
-          }, 600)
+          // ไปหน้า start ทันทีเมื่อถึง 0
+          setFlowState('start')
+          setCountdown(15) // Reset countdown ทันที
           return 15
         }
         return prev - 1
@@ -848,9 +961,39 @@ const SubmitPage = () => {
                 <p className='text-8xl font-bold font-anuphan text-[#FF8585]'>Wishing well</p>
               </div>
               <button
-                onClick={() => {
-                  void ensureAudioReady()
-                  setFlowState('form')
+                onClick={async () => {
+                  // Unlock audio อย่างชัดเจนด้ล้วย user interaction
+                  if (audioContextRef.current && audioBufferRef.current) {
+                    try {
+                      // Resume AudioContext
+                      await audioContextRef.current.resume()
+                      console.log('🔊 AudioContext resumed, state:', audioContextRef.current.state)
+                      
+                      // เล่นเสียงดังๆ เพื่อยืนยันว่า unlock สำเร็จ
+                      const source = audioContextRef.current.createBufferSource()
+                      const gainNode = audioContextRef.current.createGain()
+                      source.buffer = audioBufferRef.current
+                      source.connect(gainNode)
+                      gainNode.connect(audioContextRef.current.destination)
+                      gainNode.gain.value = 0.8 // เสียงดังพอสมควร
+                      source.start(0)
+                      
+                      console.log('✅ Audio unlocked successfully!')
+                      setAudioUnlocked(true)
+                      
+                      // รอ 500ms แล้วไปหน้า form
+                      setTimeout(() => {
+                        setFlowState('form')
+                      }, 500)
+                    } catch (error) {
+                      console.error('❌ Failed to unlock audio:', error)
+                      // ถ้า unlock ไม่สำเร็จ ก็ไปหน้า form ต่อไปเลย
+                      setFlowState('form')
+                    }
+                  } else {
+                    // ถ้ายังไม่มี audio context ก็ไปหน้า form เลย
+                    setFlowState('form')
+                  }
                 }}
                 className='flex items-center gap-2 bg-[#6F7DFD] text-white px-6 py-4 rounded-full text-5xl w-64 h-20 justify-center'
               >
@@ -875,6 +1018,9 @@ const SubmitPage = () => {
                   label="Your Name"
                   value={author}
                   onChange={handleAuthorChange}
+                  onFocus={handleAuthorFocus}
+                  onClick={handleAuthorFocus}
+                  onTouchStart={handleAuthorFocus}
                   onKeyDown={handleAuthorKeyDown}
                   autoFocus
                   containerClassName="flex w-full flex-col items-center gap-4 h-30 w-full"
@@ -886,6 +1032,9 @@ const SubmitPage = () => {
                   label="Your Wish"
                   value={message}
                   onChange={handleMessageChange}
+                  onFocus={handleMessageFocus}
+                  onClick={handleMessageFocus}
+                  onTouchStart={handleMessageFocus}
                   onKeyDown={handleMessageKeyDown}
                   containerClassName="flex w-full flex-col items-center gap-4 h-30 w-full"
                   className="flex-1 min-w-0 bg-black/10 text-center text-3xl font-anuphan w-[90%] "
