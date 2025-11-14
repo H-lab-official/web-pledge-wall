@@ -98,6 +98,10 @@ const SubmitPage = () => {
   // เก็บค่าก่อนหน้าเพื่อเช็คว่ามีการเปลี่ยนแปลง
   const prevAuthorRef = useRef('')
   const prevMessageRef = useRef('')
+  
+  // Refs for input fields
+  const authorInputRef = useRef<HTMLInputElement>(null)
+  const messageInputRef = useRef<HTMLInputElement>(null)
 
   // ฟังก์ชันเล่นเสียงแป้นพิมพ์ (iOS-friendly)
   const playKeySound = async () => {
@@ -203,6 +207,46 @@ const SubmitPage = () => {
       clearInterval(timer)
     }
   }, [flowState])
+
+  // Handle Enter key press on start screen
+  useEffect(() => {
+    if (flowState !== 'start') return
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        setFlowState('form')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [flowState])
+
+  // Auto focus on first input when entering form
+  useEffect(() => {
+    if (flowState === 'form' && authorInputRef.current) {
+      // Small delay to ensure the element is rendered
+      setTimeout(() => {
+        authorInputRef.current?.focus()
+      }, 100)
+    }
+  }, [flowState])
+
+  // Handle Enter key on author input (move to next field)
+  const handleAuthorKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      messageInputRef.current?.focus()
+    }
+  }
+
+  // Handle Enter key on message input (submit form)
+  const handleMessageKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSubmit()
+    }
+  }
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -783,17 +827,21 @@ const SubmitPage = () => {
             >
               <form onSubmit={handleSubmit} className='flex w-full max-w-4xl flex-col gap-8 relative'>
                 <FormInput
+                  ref={authorInputRef}
                   label="Your Name"
                   value={author}
                   onChange={handleAuthorChange}
+                  onKeyDown={handleAuthorKeyDown}
                   containerClassName="flex w-full flex-col items-center gap-4 h-30 w-full"
                   className="flex-1 min-w-0 bg-black/10 text-center text-3xl font-anuphan w-[90%] "
                   shake={shakeAuthor && !author.trim()}
                 />
                 <FormInput
+                  ref={messageInputRef}
                   label="Your Wish"
                   value={message}
                   onChange={handleMessageChange}
+                  onKeyDown={handleMessageKeyDown}
                   containerClassName="flex w-full flex-col items-center gap-4 h-30 w-full"
                   className="flex-1 min-w-0 bg-black/10 text-center text-3xl font-anuphan w-[90%] "
                   shake={shakeMessage && !message.trim()}

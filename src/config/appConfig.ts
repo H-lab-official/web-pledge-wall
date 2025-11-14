@@ -13,11 +13,11 @@ export const APP_MODE = 'offline' as AppMode
 export const API_CONFIG = {
   // Express server local (สำหรับ offline mode)
   // ⚙️ สำหรับงาน: ใช้ IP ของเครื่อง server ในงาน
-  LOCAL_API_URL: 'http://192.168.11.18:3001/api', // เปลี่ยนจาก localhost เป็น IP จริง
+  LOCAL_API_URL: 'http://192.168.11.51:3001/api', // เปลี่ยนจาก localhost เป็น IP จริง
   
   // Backup server (สำหรับกรณี Firebase ล้มเหลวหรือช้าเกินไป)
   // ⚙️ เปลี่ยน IP/URL นี้เป็นของคุณ
-  BACKUP_API_URL: 'http://192.168.11.18:3001/api', // เปลี่ยนเป็น IP ของ backup server
+  BACKUP_API_URL: 'http://192.168.11.51:3001/api', // เปลี่ยนเป็น IP ของ backup server
   
   // Timeout settings
   PRIMARY_TIMEOUT: 12000, // 12 วินาที - ถ้าเกินนี้จะใช้ backup

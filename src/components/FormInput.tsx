@@ -10,13 +10,13 @@ interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 const baseInputClass =
   'h-12 rounded-full border-2 border-gray-300 bg-black/20 px-8 py-3 text-[#2f1b41] leading-relaxed text-center'
 
-const FormInput: React.FC<FormInputProps> = ({
+const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(({
   label,
   containerClassName = '',
   className = '',
   shake = false,
   ...rest
-}) => {
+}, ref) => {
   const shakeAnimation = shake ? {
     x: [0, -10, 10, -10, 10, -5, 5, 0],
     transition: { duration: 0.5 }
@@ -31,12 +31,15 @@ const FormInput: React.FC<FormInputProps> = ({
         {label}
       </label>
       <motion.input
+        ref={ref}
         animate={shakeAnimation}
         className={`${baseInputClass} ${className}`}
         {...inputProps}
       />
     </div>
   )
-}
+})
+
+FormInput.displayName = 'FormInput'
 
 export default FormInput
